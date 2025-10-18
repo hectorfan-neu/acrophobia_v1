@@ -163,6 +163,24 @@
             "Local origin": "at 3m from the -Z side, on the -X side",
             "Dimensions": "10m x 10m"
         }
-    }
+    },
+    "Assets/CastlePack/Prefabs/WoodenBridge.prefab":
+    {
+        "Name": "WoodenBridgeNoHandrails",
+        "Info": {
+            "Local origin": "at the highest point in the bridge, 1.5 from the base of the legs. The origin is at the middle of the crossing and in the middle of the width (x dimension) of the bridge",
+            "Description": " a firm wooden bridge with a slight arc, and 4 sets of 2 legs.",
+            "Dimensions": "2m wide (in the +/- x dimension), 5m long - across the bridge, and 2 m tall. The start of the crossing (on both sides) is about 1m high, while the center of the arc is 1.5 meters high."
+        }
+    },
+    "Assets/CastlePack/Prefabs/WoodenBridgeHanddrails.prefab":
+    {
+        "Name": "WoodenBridgeHandrails",
+        "Info": {
+            "Local origin": "at the highest point in the bridge, 1.5 from the base of the legs. The origin is at the middle of the crossing and in the middle of the width (x dimension) of the bridge",
+            "Description": " a firm wooden bridge with a slight arc, a handrail, and 4 sets of 2 legs.",
+            "Dimensions": "2m wide (in the +/- x dimension), 5m long - across the bridge, and 2 m tall. The start of the crossing (on both sides) is about 1m high, while the center of the arc is 1.5 meters high. The handrails are another 1m off the bridge."
+        }
+    },
 
 }
