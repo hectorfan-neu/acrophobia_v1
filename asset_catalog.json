@@ -31,7 +31,7 @@
         "Info": {
             "Local origin": "Origin at my +X side, and in the middle of my Z dimension (about 1.25m on both sides). My origin is 1m from the sag in the middle of the bridge, but flush with the base of my posts.",
             "Dimensions": "I am 16m long (in the -X direction) and about 2.5m wide.",
-            "Description": "I have 2 posts on either end, each 2m tall. There is a 1m sag in the crossing, since I am a rope bridge. You might need to rethink the ground terrain once if I'm placed in the scene, so that I hang over the water. When you place me, refer to how my two posts contact the ground at the right places: 16m apart on the ground."
+            "Description": "I have 2 posts on either end, each 2m tall. There is a 1m sag in the crossing, since I am a rope bridge. You might need to rethink the ground terrain once if I'm placed in the scene, so that I hang over the water. When you place me, refer to how my two posts contact the ground at the right places: 16m apart on the ground. There are small spaces in between the wooden planks making my surface."
         }
     },
     "Assets/Proxy Games/Stylized Nature Kit Lite/Prefabs/Rocks/Rock Cliffs/Rock Cliff 1.prefab":
@@ -168,8 +168,8 @@
     {
         "Name": "WoodenBridgeNoHandrails",
         "Info": {
-            "Local origin": "at the highest point in the bridge, 1.5 from the base of the legs. The origin is at the middle of the crossing and in the middle of the width (x dimension) of the bridge",
-            "Description": " a firm wooden bridge with a slight arc, and 4 sets of 2 legs.",
+            "Local origin": "at the base of the legs of the bridge. The origin is at the middle of the crossing (z dimension) and in the middle of the width (x dimension) of the bridge",
+            "Description": "Crossing goes across the Z axis. A firm wooden bridge with a slight arc, and 4 sets of 2 legs.",
             "Dimensions": "2m wide (in the +/- x dimension), 5m long - across the bridge, and 2 m tall. The start of the crossing (on both sides) is about 1m high, while the center of the arc is 1.5 meters high."
         }
     },
@@ -177,10 +177,63 @@
     {
         "Name": "WoodenBridgeHandrails",
         "Info": {
-            "Local origin": "at the highest point in the bridge, 1.5 from the base of the legs. The origin is at the middle of the crossing and in the middle of the width (x dimension) of the bridge",
-            "Description": " a firm wooden bridge with a slight arc, a handrail, and 4 sets of 2 legs.",
-            "Dimensions": "2m wide (in the +/- x dimension), 5m long - across the bridge, and 2 m tall. The start of the crossing (on both sides) is about 1m high, while the center of the arc is 1.5 meters high. The handrails are another 1m off the bridge."
+            "Local origin": "at the base of the legs of the bridge. The origin is at the middle of the crossing (z dimension) and in the middle of the width (x dimension) of the bridge",
+            "Description": "Crossing goes across the Z axis. A firm wooden bridge with a slight arc, and 4 sets of 2 legs. There is also a handrail that goes up one meter from the surface of the bridge.",
+            "Dimensions": "2m wide (in the +/- x dimension), 5m long - across the bridge, and 2 m tall. The start of the crossing (on both sides) is about 1m high, while the center of the arc is 1.5 meters high."
         }
     },
+    "Assets/CastlePack/Prefabs/StoneBridgeFlat.prefab":
+    {
+        "Name": "FlatStoneBridge",
+        "Info": {
+            "Local origin": "At the objects centerpoint Z and X, and at the base of the object (y=0).",
+            "Description": " a firm wooden bridge with a slight arc, a handrail, and 4 sets of 2 legs.",
+            "Dimensions": "1.5m high (Y), 10m across (Z), and 5m across (X). The part one can walk on is about .7 from the base and the walkway is only 4 m wide."
+        }
+    },
+    "Assets/MaximeBrunoni/BridgesPack/Prefabs/BridgePontoon.prefab":
+    {
+        "Name": "WoodenPontoonBridge",
+        "Info": {
+            "Local origin": "At the base of the crossing, but 5m from the base of the legs. Center of the Z dimension, and on the -X side.",
+            "Description": "Crossing goes across the X axis. 3 sets of two long legs go downward. Some cracks through the bridge show significant ware, and the planks are uneven.",
+            "Dimensions": "The platform crossing is relatively flat. It goes 8m over the x axis and is 3 m wide."
+        }
 
+    },
+    "Assets/MaximeBrunoni/BridgesPack/Prefabs/BridgeHanging.prefab":
+    {
+        "Name": "HangingBridge",
+        "Info": {
+            "Local origin": "midpoint X, midpoint Z, midpoint Y",
+            "Description": "A rope bridge with 2 supporting posts on either side and 2 stakes on either side. The posts hold the bridge and the stakes provide tension to the rope handrails.",
+            "Dimensions": "13m from stakes to stakes - 6.5 on the +Z, 6.5 on the -Z, and 7m from posts to posts - 3.5m +/- Z. 4m wide - +2/-2 to from post to post on each side, and from stake to stake. About 1 meter high rope railings."
+        }
+    },
+    "Assets/MaximeBrunoni/BridgesPack/Prefabs/Well.prefab":
+    {
+        "Name": "Well",
+        "Info": {
+            "Local origin": "base of the well, center of the horizontal circle.",
+            "Dimensions": "1.5m radius base of the well, and 3 meter tall structure."
+        }
+    },
+    "Assets/Oode studios/Lowpoly nature/Prefabs/Bridges/Bridge.prefab":
+    {
+        "Name": "SimpleWoodenBridge",
+        "Info": {
+            "Local origin": "Y is 1m below the posts and 0.5m below the lowest part of the crossing. Midpoint Z, midpoint x.",
+            "Dimensions": "6 m long in the Z dimension over the crossing. The walkway is 2m wide. The railings are 1 meter off the surface of the bridge.",
+            "Description": "A low poly bridge. The posts on either side are the starts and ends of the crossing. Very small cracks in teh bridge."
+        }
+    },
+    "Assets/POLYGON city pack/Prefabs/Buildings/Building_A_slender_prefab.prefab":
+    {
+        "Name": "SlenderGrayBuilding36m",
+        "Info": {
+            "Local origin": "5m from building's -X side, and right at the objects +Z side",
+            "Dimensions": "18 across the x axis, 12m across the z axis, and 40m high",
+            "Important points": "There is a good position for a player at the roof at (0, 41, -8) from this object's origin."
+        }
+    }
 }
