@@ -4,9 +4,11 @@ using System.IO;
 using System.Linq;
 using System.Diagnostics;
 using UnityEditor.SceneManagement;
+using System.Collections.Generic;
 
 public class GenerationWindow : EditorWindow
 {
+    
     private int selectedTab = 0;
     private string[] tabs = { "Generate", "Generations", "Settings" };
 
@@ -14,6 +16,7 @@ public class GenerationWindow : EditorWindow
     private string promptText = "";
     private string generationName = "";
     private bool use_asset_project_generator_class = true;
+    private Dictionary<string, bool> expandedLogs = new Dictionary<string, bool>();
 
     // Generations tab
     private Vector2 scrollPos;
@@ -21,12 +24,15 @@ public class GenerationWindow : EditorWindow
     private int selectedGenerationIndex = -0;
     private string[] generationFiles;
 
-    public static readonly string ProjectRoot = Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
-    public static readonly string assetProject = new DirectoryInfo(ProjectRoot).Name;
+    public static readonly string assetProjectDir = Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
+    public static readonly string assetProject = new DirectoryInfo(assetProjectDir).Name;
+    private string backendPath = Path.Combine(assetProjectDir, "../../../Backend");
+
     private string rootPath = "../..";  // ".." means one folder above Assets (the project root)
     private string[] folderOptions;
     private int selectedFolderIndex = 0;
 
+    
 
     [MenuItem("Gen Menu/Generation Window %#g")] // Ctrl/Cmd + Shift + G
     private static void OpenWindow()
@@ -103,6 +109,109 @@ public class GenerationWindow : EditorWindow
                 RefreshGenerationsList();
             }
         }
+
+        // Active Generations Section
+        GUILayout.Label("Active Generations", EditorStyles.boldLabel);
+
+        string logsDir = Path.Combine(backendPath, "logs");
+
+        if (!Directory.Exists(logsDir))
+        {
+            EditorGUILayout.HelpBox($"Logs folder not found:\n{logsDir}", MessageType.Warning);
+            return;
+        }
+
+        string[] logFiles = Directory.GetFiles(logsDir, "*.log", SearchOption.TopDirectoryOnly);
+        if (logFiles.Length == 0)
+        {
+            EditorGUILayout.LabelField("No active generations.");
+        }
+        else
+        {
+            foreach (string logPath in logFiles)
+            {
+                string sceneName = Path.GetFileNameWithoutExtension(logPath);
+
+                if (!expandedLogs.ContainsKey(sceneName))
+                    expandedLogs[sceneName] = false;
+
+                string lastLine = ReadLastLine(logPath);
+                EditorGUILayout.Space(6);
+                EditorGUILayout.LabelField($"{sceneName}");
+                EditorGUILayout.HelpBox(lastLine, MessageType.None);
+
+                //GUILayout.FlexibleSpace();
+                if (GUILayout.Button(expandedLogs[sceneName] ? "Hide Full Log" : "Show Full Log", GUILayout.Width(120)))
+                {
+                    expandedLogs[sceneName] = !expandedLogs[sceneName];
+                }
+
+                if (expandedLogs[sceneName])
+                {
+                    string fullLog = ReadWholeFileSafe(logPath);
+                    EditorGUILayout.TextArea(fullLog, GUILayout.Height(200));
+                }
+
+                EditorGUILayout.LabelField("", GUI.skin.horizontalSlider);
+            }
+        }
+
+        GUILayout.Space(50);
+
+        GUILayout.Label("Past Generations", EditorStyles.boldLabel);
+
+        string doneDir = Path.Combine(backendPath, "done_logs");
+        if (!Directory.Exists(doneDir))
+        {
+            EditorGUILayout.HelpBox($"Past logs folder not found:\n{doneDir}", MessageType.Info);
+            return;
+        }
+
+        string[] doneLogFiles = Directory.GetFiles(doneDir, "*.log", SearchOption.TopDirectoryOnly)
+                                     .OrderByDescending(File.GetLastWriteTime)
+                                     .ToArray();
+
+        if (doneLogFiles.Length == 0)
+        {
+            EditorGUILayout.LabelField("No past logs found.");
+            return;
+        }
+
+        foreach (string logPath in doneLogFiles)
+        {
+            string sceneName = Path.GetFileNameWithoutExtension(logPath);
+            if (!expandedLogs.ContainsKey(sceneName))
+                expandedLogs[sceneName] = false;
+
+            GUILayout.Space(4);
+            GUILayout.BeginHorizontal();
+            if (GUILayout.Button(expandedLogs[sceneName] ? $"▼ {sceneName}" : $"▶ {sceneName}", EditorStyles.miniButtonLeft))
+            {
+                expandedLogs[sceneName] = !expandedLogs[sceneName];
+            }
+            GUILayout.EndHorizontal();
+
+            if (expandedLogs[sceneName])
+            {
+                string fullLog = ReadWholeFileSafe(logPath);
+                EditorGUILayout.TextArea(fullLog, GUILayout.Height(200));
+            }
+
+            EditorGUILayout.LabelField("", GUI.skin.horizontalSlider);
+        }
+
+        GUILayout.Space(10);
+        GUILayout.Label("", GUI.skin.horizontalSlider);
+
+        // Archive button
+        GUILayout.BeginHorizontal();
+        GUILayout.FlexibleSpace();
+        if (GUILayout.Button("Archive All Done Logs", GUILayout.Width(200), GUILayout.Height(25)))
+        {
+            ArchiveDoneLogs();
+        }
+        GUILayout.FlexibleSpace();
+        GUILayout.EndHorizontal();
     }
 
     private void DrawGenerationsTab()
@@ -126,8 +235,25 @@ public class GenerationWindow : EditorWindow
         {
             string scenePath = GetSelectedGenerationPath();
 
+            string relativePath = "Assets" + scenePath.Substring(Application.dataPath.Length);
+            UnityEngine.Debug.Log(relativePath);
         // Check if the scene exists
-            var sceneAsset = AssetDatabase.LoadAssetAtPath<SceneAsset>(scenePath);
+            SceneAsset sceneAsset = AssetDatabase.LoadAssetAtPath<SceneAsset>(relativePath);  
+
+            if (sceneAsset == null)
+            {
+                UnityEngine.Debug.LogError($"❌ Failed to load scene at {relativePath}");
+            }
+            else
+            {
+                UnityEngine.Debug.Log($"✅ Loaded scene asset: {sceneAsset.name}");
+            }
+            // optional: confirm scene save
+            if (EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo())
+            {
+                EditorSceneManager.OpenScene(relativePath, OpenSceneMode.Single);
+                this.Close();
+            }
         }
     }
 
@@ -242,8 +368,8 @@ public class GenerationWindow : EditorWindow
 
     private void Generate()
     {
-        string scriptPath = "../../../../../Backend/generate.sh"; // absolute or relative
-        // Make this a reative path...
+        string scriptPath = Path.GetFullPath(Path.Combine(backendPath, "generate.sh"));
+        UnityEngine.Debug.Log(scriptPath);
         if (!File.Exists(scriptPath))
         {
             UnityEngine.Debug.LogError($"Script not found: {scriptPath}");
@@ -258,12 +384,16 @@ public class GenerationWindow : EditorWindow
         {
             FileName = "/bin/bash",
             Arguments = bashArgs,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
             UseShellExecute = false,
             CreateNoWindow = true
         };
 
+        Process process = new Process { StartInfo = psi };
+        process.Start();
+
+        UnityEngine.Debug.Log($"🚀 Generation {generationName} started!");
+    
+        /*// Synchronous version...
         using (Process process = new Process())
         {
             process.StartInfo = psi;
@@ -277,5 +407,107 @@ public class GenerationWindow : EditorWindow
             if (!string.IsNullOrEmpty(errors))
                 UnityEngine.Debug.LogWarning($"⚠️ Bash errors:\n{errors}");
         }
+        */
     }
+
+    private static string ReadLastLine(string path)
+    {
+        try
+        {
+            using (var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+            {
+                if (fs.Length == 0) return "(empty)";
+                fs.Seek(-1, SeekOrigin.End);
+
+                bool foundLine = false;
+                var lineBytes = new System.Collections.Generic.List<byte>();
+
+                while (fs.Position > 0)
+                {
+                    int b = fs.ReadByte();
+                    if (b == '\n')
+                    {
+                        if (foundLine) break;
+                        foundLine = true;
+                    }
+                    else if (foundLine)
+                    {
+                        lineBytes.Insert(0, (byte)b);
+                    }
+                    fs.Seek(-2, SeekOrigin.Current);
+                }
+
+                return System.Text.Encoding.UTF8.GetString(lineBytes.ToArray()).Trim();
+            }
+        }
+        catch (System.Exception e)
+        {
+            return $"(error reading log: {e.Message})";
+        }
+    }
+
+    private static string ReadWholeFileSafe(string path)
+    {
+        try
+        {
+            using (var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+            using (var reader = new StreamReader(fs))
+            {
+                return reader.ReadToEnd();
+            }
+        }
+        catch (System.Exception e)
+        {
+            return $"(error reading full log: {e.Message})";
+        }
+    }
+
+    private void ArchiveDoneLogs()
+    {
+        string doneDir = Path.Combine(backendPath, "done_logs");
+        string archiveDir = Path.Combine(backendPath, "archived_logs");
+
+        if (!Directory.Exists(doneDir))
+        {
+            UnityEngine.Debug.LogWarning($"No 'done_logs' folder found at {doneDir}");
+            return;
+        }
+
+        Directory.CreateDirectory(archiveDir);
+
+        string[] doneFiles = Directory.GetFiles(doneDir, "*.log", SearchOption.TopDirectoryOnly);
+
+        if (doneFiles.Length == 0)
+        {
+            UnityEngine.Debug.Log("No done logs to archive.");
+            return;
+        }
+
+        int movedCount = 0;
+        foreach (string file in doneFiles)
+        {
+            try
+            {
+                string destPath = Path.Combine(archiveDir, Path.GetFileName(file));
+
+                // Ensure unique name in archive (timestamp if needed)
+                if (File.Exists(destPath))
+                {
+                    string timestamp = System.DateTime.Now.ToString("yyyyMMdd_HHmmss");
+                    string newName = $"{Path.GetFileNameWithoutExtension(file)}_{timestamp}.log";
+                    destPath = Path.Combine(archiveDir, newName);
+                }
+
+                File.Move(file, destPath);
+                movedCount++;
+            }
+            catch (System.Exception e)
+            {
+                UnityEngine.Debug.LogError($"Error archiving {file}: {e.Message}");
+            }
+        }
+
+        UnityEngine.Debug.Log($"📦 Archived {movedCount} log(s) to {archiveDir}");
+    }
+
 }
