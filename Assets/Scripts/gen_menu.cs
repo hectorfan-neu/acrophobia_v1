@@ -2,6 +2,7 @@ using UnityEngine;
 using UnityEditor;
 using System.IO;
 using System.Linq;
+using System.Diagnostics;
 using UnityEditor.SceneManagement;
 
 public class GenerationWindow : EditorWindow
@@ -12,23 +13,30 @@ public class GenerationWindow : EditorWindow
     // Generate tab fields
     private string promptText = "";
     private string generationName = "";
+    private bool use_asset_project_generator_class = true;
 
     // Generations tab
     private Vector2 scrollPos;
     private string[] generationOptions;
-    private int selectedGenerationIndex = 0;
+    private int selectedGenerationIndex = -0;
     private string[] generationFiles;
 
-    private string rootPath = "..";  // ".." means one folder above Assets (the project root)
+    public static readonly string ProjectRoot = Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
+    public static readonly string assetProject = new DirectoryInfo(ProjectRoot).Name;
+    private string rootPath = "../..";  // ".." means one folder above Assets (the project root)
     private string[] folderOptions;
     private int selectedFolderIndex = 0;
+
 
     [MenuItem("Gen Menu/Generation Window %#g")] // Ctrl/Cmd + Shift + G
     private static void OpenWindow()
     {
         var window = GetWindow<GenerationWindow>("Generation Window");
         window.minSize = new Vector2(500, 300);
+        window.RefreshFolderList();
         window.RefreshGenerationsList();
+
+        
     }
 
 
@@ -68,33 +76,8 @@ public class GenerationWindow : EditorWindow
 
         promptText = EditorGUILayout.TextField("Prompt:", promptText);
         generationName = EditorGUILayout.TextField("Scene name:", generationName);
-
-        EditorGUILayout.LabelField("Select a Folder", EditorStyles.boldLabel);
-        EditorGUILayout.Space();
-
-        // Refresh folders button
-        if (GUILayout.Button("Refresh Folder List"))
-            RefreshFolderList();
-
-        if (folderOptions == null || folderOptions.Length == 0)
-        {
-            EditorGUILayout.HelpBox("No folders found.", MessageType.Info);
-            return;
-        }
-
-        // Dropdown (popup)
-        selectedFolderIndex = EditorGUILayout.Popup("Folder:", selectedFolderIndex, folderOptions);
-
-        // Show the selected folder path
-        EditorGUILayout.Space();
-        EditorGUILayout.LabelField("Selected Folder Path:");
-        EditorGUILayout.TextField(GetSelectedFolderPath());
-
-        // Example button
-        if (GUILayout.Button("Do Something With Folder"))
-        {
-            Debug.Log("Selected Folder: " + GetSelectedFolderPath());
-        }
+        
+        use_asset_project_generator_class = EditorGUILayout.Toggle($"Use {assetProject}", true);
 
         EditorGUILayout.LabelField("Parameters here...");
         EditorGUILayout.Toggle("Example Toggle", true);
@@ -108,10 +91,10 @@ public class GenerationWindow : EditorWindow
             }
             else
             {
-                // Here you would implement your generation logic
-                Debug.Log($"Generating '{generationName}' with prompt: {promptText}");
+                UnityEngine.Debug.Log($"Generating '{generationName}' with prompt: {promptText}");
 
-                // For example, save a placeholder file
+                Generate();
+
                 string path = Path.Combine(Application.dataPath, "Generations");
                 if (!Directory.Exists(path))
                     Directory.CreateDirectory(path);
@@ -127,31 +110,55 @@ public class GenerationWindow : EditorWindow
         EditorGUILayout.LabelField("Prior Generations", EditorStyles.boldLabel);
         EditorGUILayout.Space();
 
-        if (generationFiles == null || generationFiles.Length == 0)
+        if (GUILayout.Button("Refresh Generation List"))
+            RefreshGenerationsList();
+        if (generationOptions == null || generationOptions.Length == 0)
         {
             EditorGUILayout.LabelField("No prior generations found.");
             return;
         }
 
         selectedGenerationIndex = EditorGUILayout.Popup("Scene:", selectedGenerationIndex, generationOptions);
-
-        scrollPos = EditorGUILayout.BeginScrollView(scrollPos);
-        foreach (string file in generationFiles)
+        EditorGUILayout.LabelField("Selected Generation Path:");
+        EditorGUILayout.TextField(GetSelectedGenerationPath());
+        // Example button
+        if (GUILayout.Button("Open Scene"))
         {
-            if (GUILayout.Button(Path.GetFileNameWithoutExtension(file)))
-            {
-                // Load the generation (e.g., open the scene or load content)
-                string content = File.ReadAllText(file);
-                Debug.Log($"Loaded generation '{Path.GetFileNameWithoutExtension(file)}': {content}");
-            }
+            string scenePath = GetSelectedGenerationPath();
+
+        // Check if the scene exists
+            var sceneAsset = AssetDatabase.LoadAssetAtPath<SceneAsset>(scenePath);
         }
-        EditorGUILayout.EndScrollView();
     }
 
     private void DrawSettingsTab()
     {
         EditorGUILayout.LabelField("Settings", EditorStyles.boldLabel);
         EditorGUILayout.Space();
+
+
+        EditorGUILayout.LabelField("Select an Asset Project", EditorStyles.boldLabel);
+        EditorGUILayout.Space();
+
+        if (folderOptions == null || folderOptions.Length == 0)
+        {
+            EditorGUILayout.HelpBox("No folders found.", MessageType.Info);
+            return;
+        }
+
+        // Dropdown (popup)
+        selectedFolderIndex = EditorGUILayout.Popup("Asset Project:", selectedFolderIndex, folderOptions);
+
+        // Show the selected folder path
+        EditorGUILayout.Space();
+        EditorGUILayout.LabelField("Selected Asset Project Path:");
+        EditorGUILayout.TextField(GetSelectedFolderPath());
+        // END
+        if (GUILayout.Button("Open Asset Project"))
+        {
+            EditorUtility.DisplayDialog("Error", "Are you sure you want to open a new Unity project?", "Continue");
+            UnityEngine.Debug.Log("Selected Generation: " + GetSelectedGenerationPath());
+        }
 
         EditorGUILayout.LabelField("Settings will go here...");
         EditorGUILayout.Toggle("Example Toggle", true);
@@ -160,26 +167,34 @@ public class GenerationWindow : EditorWindow
 
     private string GetSelectedFolderPath()
     {
-        string projectRoot = Path.GetFullPath(Path.Combine(Application.dataPath, rootPath));
+        string assetProjects = Path.GetFullPath(Path.Combine(Application.dataPath, rootPath));
         if (selectedFolderIndex <= 0)
-            return projectRoot;
+            return assetProjects;
 
-        return Path.Combine(projectRoot, folderOptions[selectedFolderIndex]);
+        return Path.Combine(assetProjects, folderOptions[selectedFolderIndex]);
+    }
+
+    private string GetSelectedGenerationPath()
+    {   
+        string generationsRoot = Path.GetFullPath(Path.Combine(Application.dataPath, "Generations"));
+        if (selectedGenerationIndex < 0)
+            return generationsRoot;
+        return Path.ChangeExtension(Path.Combine(generationsRoot, generationOptions[selectedGenerationIndex]), ".unity");
     }
 
     private void RefreshFolderList()
     {
-        string projectRoot = Path.GetFullPath(Path.Combine(Application.dataPath, rootPath));
+        string assetProjects = Path.GetFullPath(Path.Combine(Application.dataPath, rootPath));
 
-        if (!Directory.Exists(projectRoot))
+        if (!Directory.Exists(assetProjects))
         {
             folderOptions = new string[0];
             return;
         }
 
-        folderOptions = Directory.GetDirectories(projectRoot, "*", SearchOption.TopDirectoryOnly)
+        folderOptions = Directory.GetDirectories(assetProjects, "*", SearchOption.TopDirectoryOnly)
                                  .Select(Path.GetFileName)
-                                 .Prepend("<Project Root>")
+                                 .Prepend(Path.GetFullPath(Path.Combine(Application.dataPath, "..")))
                                  .ToArray();
 
         selectedFolderIndex = 0;
@@ -187,14 +202,19 @@ public class GenerationWindow : EditorWindow
 
     private void RefreshGenerationsList()
     {
-        string path = Path.Combine(Application.dataPath, "Generations");
-        if (!Directory.Exists(path))
+        string generationsRoot = Path.Combine(Application.dataPath, "Generations");
+        if (!Directory.Exists(generationsRoot))
         {
-            generationFiles = new string[0];
+            UnityEngine.Debug.Log("Dont see generations...");
+            folderOptions = new string[0];
             return;
         }
 
-        generationFiles = Directory.GetFiles(path, "*.txt");
+        generationOptions = Directory.GetFiles(generationsRoot, "*.unity", SearchOption.TopDirectoryOnly)
+                             .Select(Path.GetFileNameWithoutExtension)
+                             .ToArray();
+
+        selectedGenerationIndex = -1;
     }
 
     [MenuItem("Gen Menu/Calibrate...")]
@@ -216,7 +236,46 @@ public class GenerationWindow : EditorWindow
         if (EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo())
         {
             EditorSceneManager.OpenScene(scenePath);
-            Debug.Log("Opened calibration scene: " + scenePath);
+            UnityEngine.Debug.Log("Opened calibration scene: " + scenePath);
+        }
+    }
+
+    private void Generate()
+    {
+        string scriptPath = "../../../../../Backend/generate.sh"; // absolute or relative
+        // Make this a reative path...
+        if (!File.Exists(scriptPath))
+        {
+            UnityEngine.Debug.LogError($"Script not found: {scriptPath}");
+            return;
+        }
+
+        // Construct the bash command arguments
+        string bashArgs = $"\"{scriptPath}\" \"{assetProject}\" \"{promptText}\" \"{generationName}\" \"{use_asset_project_generator_class.ToString()}\"";
+
+
+        ProcessStartInfo psi = new ProcessStartInfo()
+        {
+            FileName = "/bin/bash",
+            Arguments = bashArgs,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+            CreateNoWindow = true
+        };
+
+        using (Process process = new Process())
+        {
+            process.StartInfo = psi;
+            process.Start();
+
+            string output = process.StandardOutput.ReadToEnd();
+            string errors = process.StandardError.ReadToEnd();
+            process.WaitForExit();
+
+            UnityEngine.Debug.Log($"✅ Bash output:\n{output}");
+            if (!string.IsNullOrEmpty(errors))
+                UnityEngine.Debug.LogWarning($"⚠️ Bash errors:\n{errors}");
         }
     }
 }
