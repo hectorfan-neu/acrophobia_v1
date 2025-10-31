@@ -375,24 +375,30 @@ public class GenerationWindow : EditorWindow
         ProcessStartInfo psi;
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
-            // Windows
+            string script_name = "generate.ps1";
+
             string scriptPath = Path.GetFullPath(Path.Combine(backendPath, "generate.ps1"));
+            UnityEngine.Debug.Log(scriptPath);
+
             if (!File.Exists(scriptPath))
             {
                 UnityEngine.Debug.LogError($"Script not found: {scriptPath}");
                 return;
             }
+            string psArgs = $"-ExecutionPolicy Bypass -File \"{scriptPath}\" " +
+                    $"\"{assetProject}\" \"{promptText}\" \"{generationName}\" \"{use_asset_project_generator_class}\"";
 
-            string bashArgs = $"\"{scriptPath}\" \"{assetProject}\" \"{promptText}\" \"{generationName}\" \"{use_asset_project_generator_class.ToString()}\"";
-            psi = new ProcessStartInfo()
+            ProcessStartInfo psi = new ProcessStartInfo()
             {
-                FileName = "/bin/bash",
-                Arguments = bashArgs,
+                FileName = "powershell.exe",
+                Arguments = psArgs,
                 UseShellExecute = false,
-                CreateNoWindow = true
+                CreateNoWindow = true,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true
             };
         }
-        else
+        else // Linux, MacOS
         {
             string scriptPath = Path.GetFullPath(Path.Combine(backendPath, "generate.sh"));
             UnityEngine.Debug.Log(scriptPath);
@@ -404,7 +410,6 @@ public class GenerationWindow : EditorWindow
 
             // Construct the bash command arguments
             string bashArgs = $"\"{scriptPath}\" \"{assetProject}\" \"{promptText}\" \"{generationName}\" \"{use_asset_project_generator_class.ToString()}\"";
-
 
             psi = new ProcessStartInfo()
             {
