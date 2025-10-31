@@ -15,17 +15,27 @@ public class GenerationWindow : EditorWindow
     private string[] tabs = { "Generate", "Generations", "Settings" };
 
     // Generate tab fields
+    private string userPrompt = "";
+    private bool premadePromptToggle = false;
+    private string[] premadePrompts = {
+        "Select...",// Default choice
+        "Generate a world that triggers acrophobia while crossing a bridge",
+        "Generate a world where I'm on a skyscraper."
+    };
+    private int selectedPromptIndex = 0;
     private string promptText = "";
     private string generationName = "";
-    private bool use_asset_project_generator_class;
-    private bool run_sync = false;
+    private bool use_asset_project_generator_class = true;
+    private bool runSync = false;
     private Dictionary<string, bool> expandedLogs = new Dictionary<string, bool>();
 
     // Generations tab
     private Vector2 scrollPos;
     private string[] generationOptions;
-    private int selectedGenerationIndex = -0;
+    private int selectedGenerationIndex = 0;
     private string[] generationFiles;
+    private bool useSameSubject = false;
+
 
     public static readonly string assetProjectDir = Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
     public static readonly string assetProject = new DirectoryInfo(assetProjectDir).Name;
@@ -33,9 +43,10 @@ public class GenerationWindow : EditorWindow
 
     private string rootPath = "../..";  // ".." means one folder above Assets (the project root)
     private string[] folderOptions;
-    private int selectedFolderIndex = 0;
+    private int selectedFolderIndex = -1;
 
-    
+    private string subjectName = "";
+    private string[] subjects = {"Default Dave"};
 
     [MenuItem("Gen Menu/Generation Window %#g")] // Ctrl/Cmd + Shift + G
     private static void OpenWindow()
@@ -82,22 +93,28 @@ public class GenerationWindow : EditorWindow
     {
         EditorGUILayout.LabelField("Generate New Prompt", EditorStyles.boldLabel);
         EditorGUILayout.Space();
-
-        promptText = EditorGUILayout.TextField("Prompt:", promptText);
+        userPrompt = EditorGUILayout.TextField("Prompt:", userPrompt);
+        premadePromptToggle = EditorGUILayout.Toggle($"Use premade prompt", premadePromptToggle);
+        if (premadePromptToggle == true)
+            selectedPromptIndex = EditorGUILayout.Popup("    Prompt:", selectedPromptIndex, premadePrompts);
         generationName = EditorGUILayout.TextField("Scene name:", generationName);
         
         use_asset_project_generator_class = EditorGUILayout.Toggle($"Use {assetProject}", use_asset_project_generator_class);
-        run_sync = EditorGUILayout.Toggle($"Run synchronously", run_sync);
-
-        EditorGUILayout.LabelField("Parameters here...");
-        EditorGUILayout.Toggle("Example Toggle", true);
-        EditorGUILayout.FloatField("Example Float", 1.0f);
+        runSync = EditorGUILayout.Toggle($"Run synchronously", runSync);
 
         if (GUILayout.Button("Generate"))
         {
-            if (string.IsNullOrEmpty(generationName) || string.IsNullOrEmpty(promptText))
+            if (premadePromptToggle == true && selectedPromptIndex > 0)
             {
-                EditorUtility.DisplayDialog("Error", "Please enter a name for the generation.", "OK");
+                promptText = premadePrompts[selectedPromptIndex];
+            }
+            else
+            {
+                promptText = userPrompt;
+            }
+            if (string.IsNullOrEmpty(generationName))
+            {
+                EditorUtility.DisplayDialog("Error", "Please fill out a name and a prompt for the generation.", "OK");
             }
             else
             {
@@ -231,14 +248,18 @@ public class GenerationWindow : EditorWindow
             return;
         }
 
-        selectedGenerationIndex = EditorGUILayout.Popup("Scene:", selectedGenerationIndex, generationOptions);
+        selectedGenerationIndex = EditorGUILayout.Popup("Generation:", selectedGenerationIndex, generationOptions);
         EditorGUILayout.LabelField("Selected Generation Path:");
         EditorGUILayout.TextField(GetSelectedGenerationPath());
+        useSameSubject = EditorGUILayout.Toggle("Use Same Subject", useSameSubject);
         // Example button
-        if (GUILayout.Button("Open Scene"))
+        if (GUILayout.Button("Open Generation"))
         {
             string scenePath = GetSelectedGenerationPath();
-
+            if (scenePath == "None")
+            {
+                EditorUtility.DisplayDialog("Error", "Please select a scene to open.", "OK");
+            }
             string relativePath = "Assets" + scenePath.Substring(Application.dataPath.Length);
             UnityEngine.Debug.Log(relativePath);
         // Check if the scene exists
@@ -255,8 +276,13 @@ public class GenerationWindow : EditorWindow
             // optional: confirm scene save
             if (EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo())
             {
-                EditorSceneManager.OpenScene(relativePath, OpenSceneMode.Single);
-                this.Close();
+                if (useSameSubject == true){
+                    EditorSceneManager.OpenScene(relativePath, OpenSceneMode.Single);
+                    this.Close();
+                }else{
+                    PromptForSubjectAndOpenScene(relativePath);
+                }
+                
             }
         }
     }
@@ -289,10 +315,16 @@ public class GenerationWindow : EditorWindow
             EditorUtility.DisplayDialog("Error", "Are you sure you want to open a new Unity project?", "Continue");
             UnityEngine.Debug.Log("Selected Generation: " + GetSelectedGenerationPath());
         }
+    }
 
-        EditorGUILayout.LabelField("Settings will go here...");
-        EditorGUILayout.Toggle("Example Toggle", true);
-        EditorGUILayout.FloatField("Example Float", 1.0f);
+    private void PromptForSubjectAndOpenScene(string relativePath)
+    {
+        SubjectSelectionPopup.Show("Select Subject", subjects, (selectedSubject) =>
+        {
+            UnityEngine.Debug.Log($"Selected subject: {selectedSubject}");
+            EditorSceneManager.OpenScene(relativePath, OpenSceneMode.Single);
+            this.Close();
+        });
     }
 
     private string GetSelectedFolderPath()
@@ -307,8 +339,8 @@ public class GenerationWindow : EditorWindow
     private string GetSelectedGenerationPath()
     {   
         string generationsRoot = Path.GetFullPath(Path.Combine(Application.dataPath, "Generations"));
-        if (selectedGenerationIndex < 0)
-            return generationsRoot;
+        if (selectedGenerationIndex < 1)
+            return "None";
         return Path.ChangeExtension(Path.Combine(generationsRoot, generationOptions[selectedGenerationIndex]), ".unity");
     }
 
@@ -341,10 +373,11 @@ public class GenerationWindow : EditorWindow
         }
 
         generationOptions = Directory.GetFiles(generationsRoot, "*.unity", SearchOption.TopDirectoryOnly)
+                             .Prepend("Select....")
                              .Select(Path.GetFileNameWithoutExtension)
                              .ToArray();
 
-        selectedGenerationIndex = -1;
+        selectedGenerationIndex = 0;
     }
 
     [MenuItem("Gen Menu/Calibrate...")]
@@ -375,8 +408,6 @@ public class GenerationWindow : EditorWindow
         ProcessStartInfo psi;
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
-            string script_name = "generate.ps1";
-
             string scriptPath = Path.GetFullPath(Path.Combine(backendPath, "generate.ps1"));
             UnityEngine.Debug.Log(scriptPath);
 
@@ -388,7 +419,7 @@ public class GenerationWindow : EditorWindow
             string psArgs = $"-ExecutionPolicy Bypass -File \"{scriptPath}\" " +
                     $"\"{assetProject}\" \"{promptText}\" \"{generationName}\" \"{use_asset_project_generator_class}\"";
 
-            ProcessStartInfo psi = new ProcessStartInfo()
+            psi = new ProcessStartInfo()
             {
                 FileName = "powershell.exe",
                 Arguments = psArgs,
@@ -415,13 +446,15 @@ public class GenerationWindow : EditorWindow
             {
                 FileName = "/bin/bash",
                 Arguments = bashArgs,
+                RedirectStandardOutput = runSync,
+                RedirectStandardError = runSync,
                 UseShellExecute = false,
                 CreateNoWindow = true
             };
         }
         
 
-        if (run_sync == true){
+        if (runSync == true){
             using (Process process = new Process())
             {
                 process.StartInfo = psi;
@@ -545,4 +578,103 @@ public class GenerationWindow : EditorWindow
     }
 
 
+}
+
+public class SubjectSelectionPopup : EditorWindow
+{
+    private string[] subjects;
+    private int selectedIndex = 0;
+    private System.Action<string> onConfirm;
+    private string newSubjectName = "";
+    private bool addingNew = false;
+
+    public static void Show(string title, string[] subjects, System.Action<string> onConfirm)
+    {
+        var window = CreateInstance<SubjectSelectionPopup>();
+        window.titleContent = new GUIContent(title);
+        window.subjects = subjects;
+        window.onConfirm = onConfirm;
+        window.minSize = new Vector2(350, 180);
+        window.ShowUtility();
+    }
+
+    private void OnGUI()
+    {
+        GUILayout.Label("Select or Add Subject", EditorStyles.boldLabel);
+        GUILayout.Space(5);
+
+        if (!addingNew)
+        {
+            if (subjects != null && subjects.Length > 0)
+                selectedIndex = EditorGUILayout.Popup("Subject", selectedIndex, subjects);
+            else
+                EditorGUILayout.LabelField("No existing subjects found.");
+
+            GUILayout.Space(8);
+            if (GUILayout.Button("Add New Subject"))
+            {
+                addingNew = true;
+                newSubjectName = "";
+            }
+        }
+        else
+        {
+            GUILayout.Label("Enter new subject name:", EditorStyles.label);
+            newSubjectName = EditorGUILayout.TextField("New Subject", newSubjectName);
+
+            GUILayout.Space(8);
+            GUILayout.BeginHorizontal();
+            if (GUILayout.Button("✅ Confirm New Subject"))
+            {
+                if (!string.IsNullOrEmpty(newSubjectName))
+                {
+                    onConfirm?.Invoke(newSubjectName);
+                    Close();
+                }
+                else
+                {
+                    EditorUtility.DisplayDialog("Error", "Subject name cannot be empty.", "OK");
+                }
+            }
+
+            if (GUILayout.Button("⬅️"))
+            {
+                addingNew = false;
+            }
+            GUILayout.EndHorizontal();
+        }
+
+        GUILayout.FlexibleSpace();
+        GUILayout.Space(10);
+
+        // Confirm/Cancel buttons
+        if (!addingNew)
+        {
+            GUILayout.BeginHorizontal();
+            GUILayout.FlexibleSpace();
+            if (GUILayout.Button("OK", GUILayout.Width(80)))
+            {
+                string selectedSubject = subjects != null && subjects.Length > 0
+                    ? subjects[selectedIndex]
+                    : null;
+
+                if (!string.IsNullOrEmpty(selectedSubject))
+                {
+                    onConfirm?.Invoke(selectedSubject);
+                    Close();
+                }
+                else
+                {
+                    EditorUtility.DisplayDialog("Error", "Please select or add a subject.", "OK");
+                }
+            }
+
+            if (GUILayout.Button("Cancel", GUILayout.Width(80)))
+            {
+                Close();
+            }
+            GUILayout.FlexibleSpace();
+            GUILayout.EndHorizontal();
+        }
+    }
 }
