@@ -25,9 +25,15 @@ public class GenerationWindow : EditorWindow
     private int selectedPromptIndex = 0;
     private string promptText = "";
     private string generationName = "";
+    private string targetSubject = "";
+    private int targetSubjectIndex = -1;
+    List<string> targetSubjects = new List<string>();
+    private string newSubject = "";
     private bool use_asset_project_generator_class = true;
     private bool runSync = false;
     private Dictionary<string, bool> expandedLogs = new Dictionary<string, bool>();
+
+    private Dictionary<string, string> subjects2Generations = new Dictionary<string, string>();
 
     // Generations tab
     private Vector2 scrollPos;
@@ -97,8 +103,14 @@ public class GenerationWindow : EditorWindow
         premadePromptToggle = EditorGUILayout.Toggle($"Use premade prompt", premadePromptToggle);
         if (premadePromptToggle == true)
             selectedPromptIndex = EditorGUILayout.Popup("    Prompt:", selectedPromptIndex, premadePrompts);
-        generationName = EditorGUILayout.TextField("Scene name:", generationName);
-        
+        EditorGUILayout.Space();
+        targetSubjectIndex = EditorGUILayout.Popup("Subject:", targetSubjectIndex, targetSubjects.ToArray());
+        newSubject = EditorGUILayout.TextField("New subject name:", newSubject);
+        if (GUILayout.Button("Add new subject"))
+            if (!string.IsNullOrEmpty(newSubject))
+                targetSubjects.Add(newSubject);
+        EditorGUILayout.Space();       
+        generationName = EditorGUILayout.TextField("Generation name:", newSubject);
         use_asset_project_generator_class = EditorGUILayout.Toggle($"Use {assetProject}", use_asset_project_generator_class);
         runSync = EditorGUILayout.Toggle($"Run synchronously", runSync);
 
@@ -112,13 +124,18 @@ public class GenerationWindow : EditorWindow
             {
                 promptText = userPrompt;
             }
+            targetSubject = targetSubjects[targetSubjectIndex];
+            if (string.IsNullOrEmpty(targetSubject))
+                EditorUtility.DisplayDialog("Error", "Please choose a subject for the generation.", "OK");
             if (string.IsNullOrEmpty(generationName))
             {
-                EditorUtility.DisplayDialog("Error", "Please fill out a name and a prompt for the generation.", "OK");
+                EditorUtility.DisplayDialog("Error", "Please fill out a name for the generation.", "OK");
             }
             else
             {
                 UnityEngine.Debug.Log($"Generating '{generationName}' with prompt: {promptText}");
+                subjects2Generations[generationName] = targetSubject;
+
 
                 Generate();
 
@@ -130,6 +147,7 @@ public class GenerationWindow : EditorWindow
                 RefreshGenerationsList();
             }
         }
+        EditorGUILayout.Space();
 
         // Active Generations Section
         GUILayout.Label("Active Generations", EditorStyles.boldLabel);
@@ -177,7 +195,7 @@ public class GenerationWindow : EditorWindow
             }
         }
 
-        GUILayout.Space(50);
+        EditorGUILayout.Space();
 
         GUILayout.Label("Past Generations", EditorStyles.boldLabel);
 
@@ -252,6 +270,31 @@ public class GenerationWindow : EditorWindow
         EditorGUILayout.LabelField("Selected Generation Path:");
         EditorGUILayout.TextField(GetSelectedGenerationPath());
         useSameSubject = EditorGUILayout.Toggle("Use Same Subject", useSameSubject);
+        
+        // Redo this whole section:
+        //
+        ///
+        /// 
+        /// 
+        ///           Generation Name | Subject name | Reassign? | More info | Test | Approve | Delete
+        ///     **Opened Generation** | Subject name | Reassign? | More info | Test | Approve | Delete
+        ///     
+        ///     Scenes Tab
+        /// 
+        ///     Scene Name | Subject Name | Disapprove
+        ///     
+        ///     ----------
+        ///     _Subject1_
+        ///     scene1 -> scene2 -> scene3
+        ///     
+        ///     _Subject2_
+        ///     scene1 -> scene2
+        /// 
+
+
+
+        
+        
         // Example button
         if (GUILayout.Button("Open Generation"))
         {
