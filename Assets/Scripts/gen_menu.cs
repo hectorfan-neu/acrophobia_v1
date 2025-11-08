@@ -177,6 +177,7 @@ public class GenerationWindow : EditorWindow
         }
         else
         {
+            Array.Reverse(logFiles);
             scrollPosLogs = EditorGUILayout.BeginScrollView(scrollPosLogs, GUILayout.ExpandHeight(true));
             foreach (string logPath in logFiles)
             {
