@@ -19,7 +19,7 @@ public class GenerationWindow : EditorWindow
     private string userPrompt = "";
     private bool premadePromptToggle = false;
     private string[] premadePrompts = {
-        "Select...",// Default choice
+        "Select...",
         "Generate a world that triggers acrophobia while crossing a bridge",
         "Generate a world where I'm on a skyscraper."
     };
@@ -33,7 +33,7 @@ public class GenerationWindow : EditorWindow
     private bool use_asset_project_generator_class = true;
     private bool runSync = false;
     private Dictionary<string, bool> expandedLogs = new Dictionary<string, bool>();
-
+    private Dictionary<string, Vector2> logScrolls = new Dictionary<string, Vector2>();
     private Dictionary<string, string> subjects2Generations = new Dictionary<string, string>();
 
     // Generations tab
@@ -60,6 +60,8 @@ public class GenerationWindow : EditorWindow
     private string subjectName = "";
     private string[] subjects = { "Default Dave" };
 
+    private Vector2 scrollPosDoneLogs;
+    private Vector2 scrollPosLogs;
 
     [MenuItem("Gen Menu/Generation Window %#g")] // Ctrl/Cmd + Shift + G
     private static void OpenWindow()
@@ -75,7 +77,6 @@ public class GenerationWindow : EditorWindow
     private void OnGUI()
     {
         EditorGUILayout.BeginHorizontal();
-
         // Sidebar
         EditorGUILayout.BeginVertical(GUILayout.Width(120));
         selectedTab = GUILayout.SelectionGrid(selectedTab, tabs, 1);
@@ -176,6 +177,7 @@ public class GenerationWindow : EditorWindow
         }
         else
         {
+            scrollPosLogs = EditorGUILayout.BeginScrollView(scrollPosLogs, GUILayout.ExpandHeight(true));
             foreach (string logPath in logFiles)
             {
                 string sceneName = Path.GetFileNameWithoutExtension(logPath);
@@ -202,6 +204,7 @@ public class GenerationWindow : EditorWindow
 
                 EditorGUILayout.LabelField("", GUI.skin.horizontalSlider);
             }
+            EditorGUILayout.EndScrollView(); // End scroll view
         }
 
         EditorGUILayout.Space();
@@ -224,12 +227,14 @@ public class GenerationWindow : EditorWindow
             EditorGUILayout.LabelField("No past logs found.");
             return;
         }
-
+        scrollPosDoneLogs = EditorGUILayout.BeginScrollView(scrollPosDoneLogs, GUILayout.ExpandHeight(true));
         foreach (string logPath in doneLogFiles)
         {
             string sceneName = Path.GetFileNameWithoutExtension(logPath);
             if (!expandedLogs.ContainsKey(sceneName))
                 expandedLogs[sceneName] = false;
+            if (!logScrolls.ContainsKey(sceneName))
+                logScrolls[sceneName] = Vector2.zero;
 
             GUILayout.Space(4);
             GUILayout.BeginHorizontal();
@@ -242,11 +247,14 @@ public class GenerationWindow : EditorWindow
             if (expandedLogs[sceneName])
             {
                 string fullLog = ReadWholeFileSafe(logPath);
+                logScrolls[sceneName] = EditorGUILayout.BeginScrollView(logScrolls[sceneName], GUILayout.Height(200));
                 EditorGUILayout.TextArea(fullLog, GUILayout.Height(200));
+                EditorGUILayout.EndScrollView();
             }
 
             EditorGUILayout.LabelField("", GUI.skin.horizontalSlider);
         }
+        EditorGUILayout.EndScrollView(); // End scroll view
 
         GUILayout.Space(10);
         GUILayout.Label("", GUI.skin.horizontalSlider);
@@ -640,11 +648,13 @@ public class GenerationWindow : EditorWindow
                 return;
             }
 
+            UnityEngine.Debug.Log(promptText);
             UnityEngine.Debug.Log($"Running powershell with args \"{assetProject}\" \"{promptText}\" \"{generationName}\" \"{use_asset_project_generator_class}\"");
-
+            
             string psArgs = $"-ExecutionPolicy Bypass -File \"{scriptPath}\" " +
                     $"\"{assetProject}\" \"{promptText}\" \"{generationName}\" \"{use_asset_project_generator_class}\"";
-            
+
+            UnityEngine.Debug.Log(psArgs);
             
             psi = new ProcessStartInfo()
             {
@@ -825,9 +835,9 @@ public class GenerationWindow : EditorWindow
     }
 }
 
- // Ctrl/Cmd + Shift + G
+// Ctrl/Cmd + Shift + G
 public class RunExperimentWindow : EditorWindow
-{ 
+{
     [MenuItem("Gen Menu/Experiment/Customized Scenes")]
     public static void Show()
     {
@@ -906,7 +916,7 @@ public class RunExperimentWindow : EditorWindow
                     {
                         UnityEngine.Debug.LogWarning("No GameObject with a Camera component was found in the scene.");
                     }
-    
+
                     this.Close();
                 }
             }
@@ -929,8 +939,60 @@ public class RunExperimentWindow : EditorWindow
         UnityEngine.Debug.Log("Opened practice scene: " + scenePath);
     }
 
+    private List<string> GetAllSubjects(Dictionary<string, Dictionary<string, string>> generations)
+    {
+        List<string> subjects = new List<string>();
+
+        foreach (var kvp in generations)
+        {
+            var data = kvp.Value;
+            if (data.ContainsKey("Subject"))
+            {
+                subjects.Add(data["Subject"]);
+            }
+        }
+
+        return subjects;
+    }
+}
+
+
+public class CalibrationWindow : EditorWindow
+{
     [MenuItem("Gen Menu/Experiment/Calibration/Load Scene")]
-    public static void OpenPupilCalibration()
+    public static void Show()
+    {
+        CalibrationWindow window = CreateInstance<CalibrationWindow>();
+        window.titleContent = new GUIContent("Choose Subject");
+        window.minSize = new Vector2(350, 180);
+        window.ShowUtility();
+    }
+
+    private void OnGUI()
+    {
+        Dictionary<string, Dictionary<string, string>> generations = GenerationsLoader.LoadGenerations();
+        List<string> targetSubjects = GetAllSubjects(generations);
+        GUILayout.Label("Calibrate", EditorStyles.boldLabel);
+        if (targetSubjects == null || targetSubjects.Count == 0)
+        {
+            EditorGUILayout.HelpBox($"No subjects available, contact your supervisor.", MessageType.Warning);
+            return;
+        }
+        int selectedIndex = 0;
+        selectedIndex = EditorGUILayout.Popup("Select Subject", selectedIndex, targetSubjects.ToArray());
+
+
+        if (GUILayout.Button($"Open Calibration Scene", GUILayout.Width(150)))
+        {
+            string selectedSubject = targetSubjects[selectedIndex];
+            UnityEngine.Debug.Log($"Calibrating on {selectedSubject}...");
+            OpenPupilCalibration(selectedSubject);
+            Close();
+        }
+
+    }
+
+    public static void OpenPupilCalibration(string selectedSubject)
     {
 
         string scenePath = "Assets/Scenes/Calibration.unity";
@@ -949,19 +1011,36 @@ public class RunExperimentWindow : EditorWindow
             EditorSceneManager.OpenScene(scenePath);
             UnityEngine.Debug.Log("Opened calibration scene: " + scenePath);
         }
+        Camera cameraComponent = UnityEngine.Object.FindObjectOfType<Camera>();
+
+        if (cameraComponent != null)
+        {
+            GameObject cameraObject = cameraComponent.gameObject;
+
+            cameraObject.name = selectedSubject;
+            UnityEngine.Debug.Log($"Renamed GameObject with Camera component to '{selectedSubject}' for calibration.");
+        }
+        else
+        {
+            UnityEngine.Debug.LogWarning("No GameObject with a Camera component was found in the scene.");
+        }
+
     }
 
     [MenuItem("Gen Menu/Experiment/Calibration/Run Calibration")]
     public static void RunPupilCalibration()
     {
         // This line you change for another Eyetracking package.
+        /*
         ViveSR.anipal.Eye.EyeTrackingManager eyeManager = FindObjectOfType<ViveSR.anipal.Eye.EyeTrackingManager>();
+        
         if (eyeManager == null)
             UnityEngine.Debug.Log("Can't fine EyeManager...");
         else
         {
             eyeManager.PupilCalibration();
-        }
+        }*/
+        UnityEngine.Debug.Log("Would run pupil calibration");
     }
 
     // Another function copied from GenWindow
